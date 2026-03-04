@@ -1,0 +1,17 @@
+---
+name: git-commit-helper
+description: Format git commit messages properly
+---
+
+When creating commits follow this format:
+
+<type>: <description>
+
+Allowed types:
+
+feat
+fix
+refactor
+docs
+test
+chore
