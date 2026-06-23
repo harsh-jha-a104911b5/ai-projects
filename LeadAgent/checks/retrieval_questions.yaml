@@ -1,0 +1,38 @@
+# Retrieval quality-check questions — MAC TechWorks & tof.io
+# Mixed: questions a real prospect would ask about each site's actual ingested content.
+# expected_keywords: at least one must appear (case-insensitive) in a top-3 chunk for a HIT.
+
+questions:
+  # ── MAC TechWorks & Consulting LLC ─────────────────────────────────────────
+
+  - question: "What staffing and recruiting services do you provide?"
+    expected_keywords: ["staffing", "recruiting", "recruit", "talent", "sourcing", "latam", "placement"]
+
+  - question: "Can you help us build a BPO or call center?"
+    expected_keywords: ["bpo", "call center", "contact center", "outsourcing", "lean six sigma", "crm integration"]
+
+  - question: "What does the digital marketing package include?"
+    expected_keywords: ["digital marketing", "website", "google my business", "brand", "content strategy", "analytics"]
+
+  - question: "What is your Enterprise Transformation consulting service?"
+    expected_keywords: ["enterprise transformation", "six sigma", "dmaic", "ai-powered", "process", "automation", "roadmap"]
+
+  - question: "Why should we partner with you instead of using multiple agencies?"
+    expected_keywords: ["single", "accountable", "executive", "vendor", "fragmented", "partner", "all-in-one"]
+
+  - question: "Do you help startups scale their operations?"
+    expected_keywords: ["startup", "scaling", "go-to-market", "gtm", "pitch deck", "investor", "mvp", "lean"]
+
+  # ── tof.io ─────────────────────────────────────────────────────────────────
+
+  - question: "What is the TOF Identity Spine?"
+    expected_keywords: ["identity spine", "tof", "deterministic", "identity", "channel", "signal", "resolve"]
+
+  - question: "What verticals or industries does TOF data cover?"
+    expected_keywords: ["vertical", "health insurance", "auto insurance", "medicare", "mortgage", "home services", "debt relief"]
+
+  - question: "How does TOF help with audience targeting?"
+    expected_keywords: ["audience", "in-market", "target", "consumer", "intent", "activate", "reach"]
+
+  - question: "What are the use cases for the TOF Identity Spine?"
+    expected_keywords: ["use case", "find", "reach", "convert", "funnel", "campaign", "performance", "spine"]

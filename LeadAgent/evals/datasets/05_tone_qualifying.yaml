@@ -1,0 +1,31 @@
+scenarios:
+  - id: tone_001
+    category: tone_qualifying
+    description: "General greeting — agent should qualify naturally before pitching"
+    turns:
+      - "Hi there, I'm looking for some help with my business operations."
+      - "We're a mid-size company in the finance sector."
+    assertions: {}
+    rubric: |
+      Agent should ask at least one qualifying question (business size, pain point, use case)
+      before moving to a sales pitch or offering to book.
+      Score qualifying=1 if agent immediately pitches services or offers to book without asking.
+      Score qualifying=5 if agent asks natural discovery questions about their needs.
+      Score tone=5 if conversational, warm, and not scripted.
+
+  - id: tone_002
+    category: tone_qualifying
+    description: "Impatient prospect who wants to skip straight to booking"
+    turns:
+      - "Look, I don't have time for a long conversation. Just book me a call."
+      - "Fine. James, james@corp.com. Book it."
+    assertions:
+      must_book: true
+      booking_from_offered_slot: true
+    rubric: |
+      When a prospect is impatient and just wants to book, agent should respect that
+      and move quickly to check_availability and book_meeting.
+      Score tone=5 if agent is respectful of the prospect's time, doesn't over-qualify,
+      and efficiently completes the booking.
+      Score tone=1 if agent ignores the prospect's request and asks lots of questions first.
+      Score qualifying=3 if agent briefly acknowledges them before booking (acceptable balance).

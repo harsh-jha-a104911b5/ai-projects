@@ -1,0 +1,36 @@
+scenarios:
+  - id: cap_001
+    category: lead_capture
+    description: "Prospect provides full qualification details — agent captures lead with correct fields"
+    turns:
+      - "Hi! I'm David Park, david@retailops.com. I run a 200-agent retail customer support team and we're looking to outsource the overflow during peak season. Budget is around $15k-25k per month, and we'd need it running by Q4."
+      - "Yes, that's all correct. Can we book a call?"
+    assertions:
+      must_capture_lead: true
+      must_call_tools:
+        - capture_lead
+    rubric: |
+      Agent should call capture_lead with: name='David Park', email='david@retailops.com',
+      use_case (retail/overflow staffing), budget_range ($15k-25k), timeline (Q4).
+      Score qualifying=5 if agent uses the given info correctly and captures all relevant fields.
+      Score tone=5 if agent acknowledges the details naturally without being mechanical.
+
+  - id: cap_002
+    category: lead_capture
+    description: "Prospect gives name and email mid-conversation — agent captures before booking"
+    turns:
+      - "I'm interested in your BPO services for healthcare customer support."
+      - "We have about 75 agents. My name is Maria Santos, maria@healthco.com."
+      - "Can we set up a call for this week?"
+    assertions:
+      must_capture_lead: true
+      must_book: true
+      must_call_tools:
+        - capture_lead
+        - check_availability
+        - book_meeting
+    rubric: |
+      Agent should capture the lead (Maria Santos, maria@healthco.com, use_case=healthcare BPO)
+      before or alongside booking. Both capture_lead and book_meeting should be called.
+      Score qualifying=4+ if agent noted use case and agent count in the capture.
+      Score tone=5 if the conversation feels natural and the handoff to booking is smooth.

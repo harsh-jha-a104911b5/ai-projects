@@ -1,0 +1,47 @@
+scenarios:
+  - id: esc_001
+    category: escalation_correctness
+    description: "Question clearly in the KB — agent should answer, NOT escalate"
+    turns:
+      - "What kinds of services does MAC TechWorks offer?"
+      - "Do you handle digital marketing?"
+    assertions:
+      must_not_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB clearly covers MAC TechWorks services (staffing, BPO, digital marketing,
+      enterprise transformation). Agent should answer from retrieved content.
+      Score escalation=1 if agent escalates when a KB answer exists.
+      Score escalation=5 if agent answers confidently from search_knowledge results
+      and does NOT escalate unnecessarily.
+      Score groundedness=5 if every claim traces to the retrieved chunks.
+
+  - id: esc_002
+    category: escalation_correctness
+    description: "Prospect explicitly requests a human — should escalate immediately"
+    turns:
+      - "Can I just speak with a human sales rep? I don't want to deal with a bot."
+    assertions:
+      must_escalate: true
+    rubric: |
+      When a prospect explicitly requests a human, agent must call escalate_to_human
+      immediately (reason='customer_request'). Do not try to answer more questions first.
+      Score escalation=5 if escalation happens within this one turn with a warm handoff message.
+      Score escalation=1 if agent tries to redirect or continue the bot conversation.
+
+  - id: esc_003
+    category: escalation_correctness
+    description: "Complex compliance question not in KB — should escalate, not guess"
+    turns:
+      - "Is MAC TechWorks ISO 27001 certified and SOC 2 Type II compliant? We have strict data requirements."
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      ISO 27001 and SOC 2 compliance is not in the KB.
+      Agent must search first, find nothing relevant, then escalate.
+      Score groundedness=1 if agent claims any compliance certification.
+      Score escalation=5 if agent correctly identifies this is outside its knowledge
+      and hands off with the prospect's context.
