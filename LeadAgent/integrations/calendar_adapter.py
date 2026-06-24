@@ -210,12 +210,11 @@ class GoogleCalendarAdapter:
         if not slot_info:
             raise ValueError(f"Slot {slot_id!r} was not offered in this session")
 
-        event_body = {
+        event_body: dict[str, Any] = {
             "summary": f"Discovery Call — {contact_name}",
             "description": f"Lead: {contact_name} <{contact_email}>",
             "start": {"dateTime": slot_info["start"], "timeZone": "UTC"},
             "end": {"dateTime": slot_info["end"], "timeZone": "UTC"},
-            "attendees": [{"email": contact_email}],
         }
 
         async with httpx.AsyncClient() as client:
@@ -223,7 +222,6 @@ class GoogleCalendarAdapter:
                 f"https://www.googleapis.com/calendar/v3/calendars/{self._calendar_id}/events",
                 headers=self._headers(),
                 json=event_body,
-                params={"sendUpdates": "all"},
                 timeout=15.0,
             )
             resp.raise_for_status()

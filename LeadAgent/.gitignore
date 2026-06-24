@@ -14,6 +14,10 @@ env/
 .env
 .env.local
 
+# GCP service account keys — never commit
+*service-account*.json
+rare-lattice-*.json
+
 # Testing
 .pytest_cache/
 .coverage
