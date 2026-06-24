@@ -91,6 +91,23 @@ class AgentLoop:
 
             if not tool_calls:
                 text = (msg.content or "").strip()
+
+                # Grounding backstop: if search_knowledge returned grounded=false
+                # and the model is about to answer without escalating, force it.
+                if self._session.pending_grounding_escalation:
+                    esc_args = {
+                        "reason": "no_grounding",
+                        "context": "Automatic escalation: knowledge base had no relevant results.",
+                    }
+                    esc_result = await dispatch(
+                        "escalate_to_human", esc_args, self._session
+                    )
+                    logger.warning(
+                        "grounding_backstop_triggered",
+                        escalation_id=esc_result.get("escalation_id"),
+                    )
+                    text = esc_result["user_message"]
+
                 contents.append({"role": "assistant", "content": text})
                 logger.info(
                     "agent_turn_complete",

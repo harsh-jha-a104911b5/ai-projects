@@ -22,6 +22,7 @@ scenarios:
       - "I'm interested in your BPO services for healthcare customer support."
       - "We have about 75 agents. My name is Maria Santos, maria@healthco.com."
       - "Can we set up a call for this week?"
+      - "The first slot works. Book me in."
     assertions:
       must_capture_lead: true
       must_book: true

@@ -73,6 +73,9 @@ class ToolSession:
       book_meeting is rejected unless the slot_id is here (the slot guardrail).
     escalations: escalation IDs logged this conversation.
     tool_calls: ordered log of every tool call and its result (for evals / observability).
+    pending_grounding_escalation: set by dispatch when search_knowledge returns grounded=false;
+      cleared when escalate_to_human is called. Loop checks this before returning text and
+      forces escalation if still set (code backstop for grounding failures).
     """
 
     calendar: CalendarAdapter
@@ -80,6 +83,7 @@ class ToolSession:
     offered_slot_ids: set[str] = field(default_factory=set)
     escalations: list[str] = field(default_factory=list)
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
+    pending_grounding_escalation: bool = False
 
 
 # ── OpenAI-format tool declarations ──────────────────────────────────────────
@@ -248,9 +252,22 @@ async def dispatch(
     args: dict[str, Any],
     session: ToolSession,
 ) -> dict[str, Any]:
-    """Execute a named tool, record the call in session.tool_calls, and return the result."""
+    """Execute a named tool, record the call in session.tool_calls, and return the result.
+
+    Side-effects on session state beyond tool_calls:
+      - search_knowledge returning grounded=false sets session.pending_grounding_escalation.
+      - escalate_to_human clears session.pending_grounding_escalation.
+    The loop checks pending_grounding_escalation before returning a text response and forces
+    an escalation if set (code backstop — mirrors the booking slot guardrail).
+    """
     result = await _execute(name, args, session)
     session.tool_calls.append({"name": name, "args": args, "result": result})
+
+    if name == "search_knowledge" and result.get("grounded") is False:
+        session.pending_grounding_escalation = True
+    elif name == "escalate_to_human":
+        session.pending_grounding_escalation = False
+
     return result
 
 

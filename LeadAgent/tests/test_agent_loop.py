@@ -318,3 +318,68 @@ async def test_escalate_tool_in_loop():
     assert response
     # Escalation ID recorded in session
     assert len(loop._session.escalations) == 1
+
+
+# ── Grounding backstop tests ─────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_grounding_backstop_forces_escalation(monkeypatch):
+    """When search_knowledge returns grounded=false and the model answers text
+    without calling escalate_to_human, the loop forces an escalation."""
+    from domain.chunk import ChunkMetadata, RetrievedChunk
+
+    async def _empty_search(query, **kwargs):
+        return []
+
+    monkeypatch.setattr("agent.tools._search_kb", _empty_search)
+
+    client = _ScriptedClient([
+        _fn_resp("search_knowledge", query="contract terms"),
+        # Model returns text WITHOUT escalating — backstop should catch this
+        _text_resp("I don't have that information, but let me try to help."),
+    ])
+    loop = AgentLoop(MockCalendarAdapter(), client=client)
+    response, _ = await loop.turn("What are your contract terms?", [])
+
+    # Backstop should have forced an escalation
+    assert len(loop._session.escalations) == 1
+    assert "team" in response.lower() or "touch" in response.lower()
+
+
+@pytest.mark.asyncio
+async def test_grounding_backstop_not_triggered_when_model_escalates(monkeypatch):
+    """When search_knowledge returns grounded=false and the model calls
+    escalate_to_human itself, the backstop does not double-escalate."""
+    async def _empty_search(query, **kwargs):
+        return []
+
+    monkeypatch.setattr("agent.tools._search_kb", _empty_search)
+
+    client = _ScriptedClient([
+        _fn_resp("search_knowledge", query="contract terms"),
+        _fn_resp("escalate_to_human", reason="no_grounding", context="No contract info in KB"),
+        _text_resp("A team member will be in touch shortly."),
+    ])
+    loop = AgentLoop(MockCalendarAdapter(), client=client)
+    response, _ = await loop.turn("What are your contract terms?", [])
+
+    # Model escalated itself — only one escalation, not two
+    assert len(loop._session.escalations) == 1
+    assert "team" in response.lower() or "touch" in response.lower()
+
+
+@pytest.mark.asyncio
+async def test_grounding_backstop_not_triggered_when_grounded(monkeypatch):
+    """When search_knowledge returns grounded=true, the backstop stays off."""
+    monkeypatch.setattr("agent.tools._search_kb", _make_fake_search())
+
+    client = _ScriptedClient([
+        _fn_resp("search_knowledge", query="staffing services"),
+        _text_resp("We offer comprehensive staffing solutions."),
+    ])
+    loop = AgentLoop(MockCalendarAdapter(), client=client)
+    response, _ = await loop.turn("Tell me about your services", [])
+
+    assert len(loop._session.escalations) == 0
+    assert "staffing" in response.lower()
