@@ -16,5 +16,17 @@ services:
       retries: 15
       start_period: 10s
 
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://leadagent:leadagent_dev@postgres:5432/leadagent
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pg-data:

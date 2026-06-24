@@ -26,6 +26,7 @@ from agent.prompts import build_system_prompt
 from agent.tools import TOOL_SPEC, ToolSession, dispatch
 from integrations.calendar_adapter import CalendarAdapter
 from integrations.crm_adapter import CRMAdapter, MockCRMAdapter
+from integrations.email_adapter import EmailAdapter, NoopEmailAdapter
 from observability.logger import ensure_conversation, log_turn
 
 logger = structlog.get_logger(__name__)
@@ -42,6 +43,7 @@ class AgentLoop:
         calendar: CalendarAdapter,
         *,
         crm: CRMAdapter | None = None,
+        email: EmailAdapter | None = None,
         system_prompt: str | None = None,
         client: Any | None = None,
     ) -> None:
@@ -62,6 +64,7 @@ class AgentLoop:
         self._session = ToolSession(
             calendar=calendar,
             crm=crm or MockCRMAdapter(),
+            email=email or NoopEmailAdapter(),
         )
 
         self.conversation_id = uuid4()
@@ -187,6 +190,123 @@ class AgentLoop:
                 contents.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
+                    "content": json.dumps(result),
+                })
+
+    async def turn_stream(
+        self,
+        user_message: str,
+        history: list[Any],
+    ) -> Any:
+        """Async generator yielding SSE events. Final history in self.last_history."""
+        if not self._conversation_created:
+            await ensure_conversation(self.conversation_id)
+            self._conversation_created = True
+
+        self._turn_index += 1
+        turn_idx = self._turn_index
+        turn_start = time.monotonic()
+        tc_snapshot_start = len(self._session.tool_calls)
+
+        contents: list[dict[str, Any]] = list(history) + [
+            {"role": "user", "content": user_message}
+        ]
+        tool_rounds = 0
+
+        _STATUS = {
+            "search_knowledge": "Searching knowledge base…",
+            "check_availability": "Checking calendar…",
+            "book_meeting": "Booking meeting…",
+            "capture_lead": "Saving contact…",
+            "escalate_to_human": "Connecting to team…",
+        }
+
+        while True:
+            stream = await self._client.chat.completions.create(
+                model=self._model,
+                messages=[{"role": "system", "content": self._system_prompt}] + contents,
+                tools=TOOL_SPEC,
+                temperature=0.1,
+                stream=True,
+            )
+
+            collected_text: list[str] = []
+            tc_acc: dict[int, dict[str, str]] = {}
+
+            async for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+
+                if delta.content:
+                    collected_text.append(delta.content)
+                    yield {"event": "token", "data": {"content": delta.content}}
+
+                if delta.tool_calls:
+                    for tcd in delta.tool_calls:
+                        idx = tcd.index
+                        if idx not in tc_acc:
+                            tc_acc[idx] = {"id": "", "name": "", "arguments": ""}
+                        if tcd.id:
+                            tc_acc[idx]["id"] = tcd.id
+                        if tcd.function:
+                            if tcd.function.name:
+                                tc_acc[idx]["name"] = tcd.function.name
+                            if tcd.function.arguments:
+                                tc_acc[idx]["arguments"] += tcd.function.arguments
+
+            if not tc_acc:
+                text = "".join(collected_text).strip()
+
+                if self._session.pending_grounding_escalation:
+                    esc_result = await dispatch(
+                        "escalate_to_human",
+                        {"reason": "no_grounding", "context": "Automatic escalation: KB had no relevant results."},
+                        self._session,
+                    )
+                    logger.warning("grounding_backstop_triggered", escalation_id=esc_result.get("escalation_id"))
+                    text = esc_result["user_message"]
+                    yield {"event": "replace", "data": {"content": text}}
+
+                contents.append({"role": "assistant", "content": text})
+                await self._log_turn(turn_idx, user_message, text, tc_snapshot_start, turn_start)
+                yield {"event": "done", "data": {"conversation_id": str(self.conversation_id)}}
+                self.last_history = contents
+                return
+
+            tool_rounds += 1
+            if tool_rounds > self._max_rounds:
+                fallback = (
+                    "I'm sorry, I ran into an internal issue. Please try again or "
+                    "contact us directly."
+                )
+                contents.append({"role": "assistant", "content": fallback})
+                await self._log_turn(turn_idx, user_message, fallback, tc_snapshot_start, turn_start)
+                yield {"event": "message", "data": {"content": fallback}}
+                yield {"event": "done", "data": {"conversation_id": str(self.conversation_id)}}
+                self.last_history = contents
+                return
+
+            if collected_text:
+                yield {"event": "clear", "data": {}}
+
+            sorted_tcs = [tc_acc[i] for i in sorted(tc_acc)]
+            contents.append({
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {"id": tc["id"], "type": "function", "function": {"name": tc["name"], "arguments": tc["arguments"]}}
+                    for tc in sorted_tcs
+                ],
+            })
+
+            for tc in sorted_tcs:
+                yield {"event": "status", "data": {"content": _STATUS.get(tc["name"], "Processing…")}}
+                args = json.loads(tc["arguments"])
+                result = await dispatch(tc["name"], args, self._session)
+                contents.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
                     "content": json.dumps(result),
                 })
 

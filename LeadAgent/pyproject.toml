@@ -39,6 +39,7 @@ dev = [
 asyncio_mode = "auto"
 markers = [
     "integration: requires a running postgres (testcontainers or local)",
+    "live: hits real external APIs (calendar, CRM) — not in default make test",
 ]
 
 [tool.ruff]

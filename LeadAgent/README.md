@@ -1,15 +1,16 @@
 # LeadAgent
 
-AI agent that handles inbound leads end-to-end. Grounded answers from your knowledge
-base. Real calendar bookings. Everything logged and evaluated.
+AI agent that handles inbound leads end-to-end: greets prospects, answers questions
+from a RAG knowledge base, qualifies, books meetings on your real calendar, and
+captures leads to your CRM. Everything grounded, logged, and evaluated.
 
-## Quick start (M1 — RAG pipeline)
+## Quick start
 
 ### Prerequisites
 
 - Docker Desktop
 - Python 3.11+
-- OpenAI API key
+- API keys: DeepSeek (agent LLM), Gemini (embeddings)
 
 ### Setup
 
@@ -17,71 +18,121 @@ base. Real calendar bookings. Everything logged and evaluated.
 # 1. Clone and install
 git clone <repo>
 cd LeadAgent
-pip install -e ".[dev]"   # or: pip install -e . && pip install ruff pytest ...
+pip install -e ".[dev]"
 
 # 2. Configure
 cp .env.example .env
-# Edit .env — fill in OPENAI_API_KEY and DATABASE_URL
+# Edit .env — fill in DEEPSEEK_API_KEY, GEMINI_API_KEY, and DATABASE_URL
 
-# 3. Start Postgres (pgvector image — do not substitute postgres:16)
+# 3. Start Postgres + apply migrations
 make up
-
-# 4. Apply migrations
 make migrate
 
-# 5. Ingest a business site
-make dry-run URL=https://yoursite.com   # verify trafilatura extracts content
+# 4. Ingest your business site
+make dry-run URL=https://yoursite.com   # verify content extraction
 make ingest URL=https://yoursite.com
 
-# 6. Check retrieval quality
-make check-retrieval
-
-# 7. Run tests
+# 5. Run tests
 make test
+
+# 6. Start the API
+make api
+
+# 7. Open the demo page
+# → http://localhost:8000/widget/demo.html
 ```
 
-### Makefile targets
+## Embedding the widget
+
+Add this script tag to any page:
+
+```html
+<script
+  src="https://your-host/widget/widget.js"
+  data-api="https://your-host"
+  data-title="Chat with us"
+  data-color="#2563eb">
+</script>
+```
+
+| Attribute | Default | Description |
+|---|---|---|
+| `data-api` | (required) | API server URL |
+| `data-title` | "Chat with us" | Header text |
+| `data-color` | `#2563eb` | Brand color (hex) |
+| `data-position` | `right` | Bubble position: `left` or `right` |
+
+The widget injects a chat bubble and panel. Mobile-responsive. No secrets in the
+widget — the LLM key stays server-side.
+
+## Deploy with Docker Compose
+
+```bash
+# Full stack: postgres + API (serves widget)
+docker compose up -d
+
+# Apply migrations inside the container
+docker compose exec api python db/apply_migrations.py
+
+# Ingest your site
+docker compose exec api python scripts/ingest.py --url https://yoursite.com
+```
+
+The API runs on port 8000. Point your embed snippet to `https://your-host:8000`.
+
+### Neon-compatible (serverless Postgres)
+
+Set `DATABASE_URL` to your Neon connection string. Remove the `postgres` service
+from `docker-compose.yml`. Everything else works the same.
+
+## Environment variables
+
+See `.env.example` for all variables. Key ones:
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Postgres connection string |
+| `DEEPSEEK_API_KEY` | DeepSeek API key (agent LLM) |
+| `GEMINI_API_KEY` | Google Gemini key (embeddings only) |
+| `CALENDAR_ADAPTER` | `mock` or `google` |
+| `CRM_ADAPTER` | `mock` or `sheets` (Google Sheets) |
+| `ADMIN_API_KEY` | Required for `/admin/*` endpoints |
+| `ALLOWED_ORIGINS` | CORS allowlist (comma-separated, `*` for dev) |
+| `RATE_LIMIT_RPM` | Requests per minute per IP (default 30) |
+
+## Makefile targets
 
 | Target | Description |
 |---|---|
 | `make up` | Start postgres (docker compose) |
 | `make down` | Stop postgres |
 | `make migrate` | Apply pending SQL migrations |
-| `make dry-run URL=...` | Crawl + chunk, no embed/store — verify extraction |
-| `make ingest URL=...` | Full ingest: crawl → chunk → embed → store |
-| `make check-retrieval` | Run 10 test questions, print recall@3 table |
-| `make test` | Run all tests with coverage |
-| `make test-unit` | Unit tests only (no postgres required) |
-| `make test-integration` | Integration tests (requires postgres) |
-| `make lint` | ruff check |
-| `make format` | ruff format |
-| `make typecheck` | mypy strict |
+| `make api` | Start the API server (port 8000, hot reload) |
+| `make chat` | Interactive CLI chat (no API needed) |
+| `make traces` | CLI trace viewer |
+| `make ingest URL=...` | Full ingest: crawl, chunk, embed, store |
+| `make dry-run URL=...` | Crawl + chunk only, verify extraction |
+| `make check-retrieval` | Run test questions, print recall@3 |
+| `make test` | All tests (excludes live) |
+| `make test-live` | Live integration tests (hits real APIs) |
+| `make eval` | Full eval with LLM judge |
+| `make eval-ci` | Deterministic assertions only (no API cost) |
 
 ## Architecture
 
-See `CLAUDE.md` for full codebase context. See `DECISIONS.md` for architectural choices.
-See `TODO.md` for deferred work.
-
 ```
 domain/        Pydantic models — zero I/O
-rag/           Crawl → chunk → embed → hybrid retrieval
-agent/         Conversation loop + tools (M2+)
-integrations/  Calendar + CRM adapters, mocked (M2+)
-observability/ Structured logging (M5+)
-evals/         Eval harness (M4+)
-api/           FastAPI routes (M2+)
-web/           Embeddable widget (M6+)
-db/            SQL migrations + runner
-scripts/       Operational scripts
-checks/        Manual quality checks
-tests/         pytest unit + integration
+rag/           Crawl → chunk → embed → hybrid retrieval (RRF)
+agent/         Conversation loop, tools, prompts, guardrails
+integrations/  Calendar + CRM adapters (mock + real)
+observability/ Turn-level trace logging
+evals/         Eval datasets, LLM-as-judge grader
+api/           FastAPI: POST /chat (SSE), admin trace endpoints
+web/           Embeddable chat widget (vanilla JS)
+db/            SQL migrations + custom runner
+scripts/       CLI tools: chat, ingest, traces, API runner
+tests/         pytest unit + integration + API tests
 ```
 
-## Milestones
-
-1. **M1 (current)** — Ingestion + hybrid retrieval
-2. **M2** — Agent loop + tools (search, availability, booking)
-3. **M3** — Guardrails + grounding enforcement
-4. **M4** — Eval harness (automated grading, CI)
-5. **M5** — Observability + real calendar/CRM integrations
-6. **M6** — Embeddable widget + packaging
+See `CLAUDE.md` for full codebase context. See `DECISIONS.md` for architectural
+choices. See `TODO.md` for deferred work.

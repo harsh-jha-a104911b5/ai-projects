@@ -55,7 +55,7 @@ async def test_search_knowledge_returns_structured_result(session, monkeypatch):
     result = await dispatch("search_knowledge", {"query": "pricing"}, session)
     assert result["count"] == 2
     assert len(result["chunks"]) == 2
-    assert result["chunks"][0]["content"].startswith("Chunk 0")
+    assert "Chunk 0" in result["chunks"][0]["content"]
     assert "example.com" in result["sources"][0]
 
 

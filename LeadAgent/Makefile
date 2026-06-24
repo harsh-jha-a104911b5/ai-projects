@@ -1,5 +1,5 @@
 .PHONY: up down migrate ingest check-retrieval test test-unit test-integration \
-        lint format typecheck clean eval
+        test-live lint format typecheck clean eval api
 
 # ── Infrastructure ────────────────────────────────────────────────────────────
 up:
@@ -27,6 +27,9 @@ dry-run:
 chat:
 	python scripts/chat.py
 
+api:
+	python scripts/run_api.py
+
 traces:
 	python scripts/traces.py
 
@@ -36,13 +39,16 @@ check-retrieval:
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 test:
-	pytest tests/ -v --cov=rag --cov=domain --cov-report=term-missing
+	pytest tests/ -v -m "not live" --cov=rag --cov=domain --cov-report=term-missing
 
 test-unit:
-	pytest tests/ -v -m "not integration"
+	pytest tests/ -v -m "not integration and not live"
 
 test-integration:
 	pytest tests/ -v -m integration
+
+test-live:
+	pytest tests/ -v -m live
 
 # Full eval: runs all scenarios against the live model + LLM judge (costs money)
 # Requires billing-enabled GEMINI_API_KEY

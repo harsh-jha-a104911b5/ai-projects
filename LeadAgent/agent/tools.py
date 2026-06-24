@@ -19,12 +19,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 import structlog
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from domain.chunk import RetrievedChunk
 from domain.lead import EscalationRecord, LeadCapture, LeadCreateResult, TimeSlot
 from integrations.calendar_adapter import CalendarAdapter
 from integrations.crm_adapter import CRMAdapter
+from integrations.email_adapter import EmailAdapter, NoopEmailAdapter
 from rag.retriever import search_knowledge as _search_kb
 
 logger = structlog.get_logger(__name__)
@@ -34,32 +35,32 @@ logger = structlog.get_logger(__name__)
 
 
 class SearchKnowledgeInput(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=500)
 
 
 class CheckAvailabilityInput(BaseModel):
-    date_range: str
+    date_range: str = Field(..., min_length=1, max_length=200)
 
 
 class BookMeetingInput(BaseModel):
-    slot_id: str
-    contact_name: str
-    contact_email: str
+    slot_id: str = Field(..., min_length=1, max_length=100, pattern=r"^[\w\-]+$")
+    contact_name: str = Field(..., min_length=1, max_length=200)
+    contact_email: str = Field(..., min_length=3, max_length=320)
 
 
 class CaptureLeadInput(BaseModel):
-    name: str
-    email: str
-    phone: str | None = None
-    company: str | None = None
-    use_case: str | None = None
-    budget_range: str | None = None
-    timeline: str | None = None
+    name: str = Field(..., min_length=1, max_length=200)
+    email: str = Field(..., min_length=3, max_length=320)
+    phone: str | None = Field(None, max_length=30)
+    company: str | None = Field(None, max_length=200)
+    use_case: str | None = Field(None, max_length=1000)
+    budget_range: str | None = Field(None, max_length=100)
+    timeline: str | None = Field(None, max_length=200)
 
 
 class EscalateInput(BaseModel):
-    reason: str
-    context: str
+    reason: str = Field(..., min_length=1, max_length=200)
+    context: str = Field(..., min_length=1, max_length=2000)
 
 
 # ── Session state (per conversation — lives on AgentLoop, spans all turns) ───
@@ -80,6 +81,7 @@ class ToolSession:
 
     calendar: CalendarAdapter
     crm: CRMAdapter
+    email: EmailAdapter = field(default_factory=NoopEmailAdapter)
     offered_slot_ids: set[str] = field(default_factory=set)
     escalations: list[str] = field(default_factory=list)
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
@@ -288,7 +290,7 @@ async def _execute(
         result: dict[str, Any] = {
             "chunks": [
                 {
-                    "content": c.content,
+                    "content": f"[KB_DATA_START]{c.content}[KB_DATA_END]",
                     "source_url": c.source_url,
                     "rrf_score": round(c.rrf_score, 4),
                     "cosine_score": round(c.cosine_score, 4),
@@ -357,6 +359,21 @@ async def _execute(
             slot_id=inp.slot_id,
             contact=inp.contact_email,
         )
+
+        try:
+            sent = await session.email.send_booking_confirmation(
+                to_email=inp.contact_email,
+                to_name=inp.contact_name,
+                summary=f"Discovery Call — {inp.contact_name}",
+                start_iso=booking.slot.start_iso,
+                end_iso=booking.slot.end_iso,
+                booking_id=booking.booking_id,
+            )
+            result["confirmation_email_sent"] = sent
+        except Exception:
+            logger.warning("booking_email_failed", booking_id=booking.booking_id, exc_info=True)
+            result["confirmation_email_sent"] = False
+
         return result
 
     if name == "capture_lead":

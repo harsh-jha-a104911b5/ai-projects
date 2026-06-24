@@ -34,7 +34,8 @@ structlog.configure(
 
 from agent.loop import AgentLoop
 from integrations.calendar_adapter import get_calendar_adapter
-from integrations.crm_adapter import MockCRMAdapter
+from integrations.crm_adapter import get_crm_adapter
+from integrations.email_adapter import get_email_adapter
 
 
 async def main() -> None:
@@ -43,8 +44,9 @@ async def main() -> None:
     print("=" * 60 + "\n")
 
     calendar = get_calendar_adapter()
-    crm = MockCRMAdapter()
-    loop = AgentLoop(calendar, crm=crm)
+    crm = get_crm_adapter()
+    email = get_email_adapter()
+    loop = AgentLoop(calendar, crm=crm, email=email)
     history: list = []
 
     while True:

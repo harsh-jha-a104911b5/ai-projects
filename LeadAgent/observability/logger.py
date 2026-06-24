@@ -120,3 +120,48 @@ async def list_conversations(limit: int = 20) -> list[dict[str, Any]]:
             )
             rows = await cur.fetchall()
     return [dict(r) for r in rows]
+
+
+async def delete_conversation(conversation_id: UUID) -> bool:
+    """Delete a conversation and all its traces. Returns True if found."""
+    url = _database_url()
+    if not url:
+        return False
+    aconn = await psycopg.AsyncConnection.connect(url)
+    async with aconn:
+        async with aconn.cursor() as cur:
+            await cur.execute(
+                "DELETE FROM traces WHERE conversation_id = %s",
+                (str(conversation_id),),
+            )
+            await cur.execute(
+                "DELETE FROM conversations WHERE id = %s RETURNING id",
+                (str(conversation_id),),
+            )
+            row = await cur.fetchone()
+    return row is not None
+
+
+async def purge_old_data(days: int) -> int:
+    """Delete conversations and traces older than N days. Returns count deleted."""
+    url = _database_url()
+    if not url:
+        return 0
+    aconn = await psycopg.AsyncConnection.connect(url)
+    async with aconn:
+        async with aconn.cursor() as cur:
+            await cur.execute(
+                """DELETE FROM traces WHERE conversation_id IN (
+                       SELECT id FROM conversations
+                       WHERE created_at < now() - make_interval(days => %s)
+                   )""",
+                (days,),
+            )
+            await cur.execute(
+                """DELETE FROM conversations
+                   WHERE created_at < now() - make_interval(days => %s)
+                   RETURNING id""",
+                (days,),
+            )
+            rows = await cur.fetchall()
+    return len(rows)

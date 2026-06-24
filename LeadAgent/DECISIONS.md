@@ -204,3 +204,84 @@ dep of `google-genai`, and `httpx` is in deps).
 **Selection:** `CALENDAR_ADAPTER=google` in env; default `mock` keeps test/CI green.
 **Tradeoff:** Service account requires calendar sharing setup. Alternative was
 Cal.com (simpler API key auth) but user chose Google Calendar.
+
+---
+
+## 2026-06-24 — M6: Google Sheets as CRM via Sheets API v4
+
+**Context:** `capture_lead` was still hitting MockCRMAdapter. User doesn't have a
+HubSpot/GoHighLevel account. Google infra is already set up (service account + httpx).
+**Decision:** `GoogleSheetsCRMAdapter` appends lead rows to a Google Sheet. Same
+pattern as the calendar adapter: service account auth, httpx REST calls, env-selected.
+Auto-creates header row on first write.
+**Selection:** `CRM_ADAPTER=sheets` in env; default `mock` keeps test/CI green.
+**Tradeoff:** Not a real CRM (no pipeline, no automation). Sufficient for lead
+capture and handoff; HubSpot adapter can be added later behind the same protocol.
+
+---
+
+## 2026-06-24 — M6: live test gating
+
+**Context:** GoogleCalendarAdapter and GoogleSheetsCRMAdapter hit real external APIs.
+They must not run in CI or default `make test` (no credentials, would fail or spam).
+**Decision:** `@pytest.mark.live` marker. `make test` excludes `-m "not live"`.
+`make test-live` runs them explicitly. The 90 mock tests stay the default suite.
+
+---
+
+## 2026-06-24 — M6: SSE-streamed chat API with abuse protection
+
+**Context:** LeadAgent needs a public endpoint for the embeddable widget. Public
+endpoints on the open internet are an abuse surface (anyone can burn LLM tokens).
+**Decision:** FastAPI `POST /chat` returns SSE stream (`text/event-stream`).
+Token-by-token streaming via OpenAI SDK `stream=True`. Admin endpoints (`/admin/traces`)
+gated behind `X-Admin-Key` header. Abuse protection: sliding-window per-IP rate
+limiting (in-memory), max message length, max conversation turns, CORS origin allowlist.
+All limits configurable via env vars.
+**Design:** In-memory session store (dict of conversation_id → AgentLoop + history).
+LLM key stays server-side — widget never sees it. On Windows, `SelectorEventLoop`
+must be set before uvicorn starts (runner script `scripts/run_api.py`).
+**Tradeoff:** In-memory rate limiter and session store only work for single-instance
+deployment. Multi-instance would need Redis or similar. Fine for v1 (one deployment =
+one business).
+
+---
+
+## 2026-06-24 — M6: Embeddable widget as self-contained JS
+
+**Context:** Need a one-line embed for business websites.
+**Decision:** Single `widget.js` file with embedded CSS. Configurable via data
+attributes (`data-api`, `data-title`, `data-color`, `data-position`). Vanilla JS,
+no framework, no build step. Served as static file by FastAPI (`/widget/widget.js`).
+**Tradeoff:** No React/framework means less composability, but zero bundle size
+overhead and no build toolchain. Sufficient for a chat bubble + panel.
+
+---
+
+## 2026-06-24 — Pre-pilot security hardening
+
+**Context:** Product is now public-facing, collecting real PII. Security bar raised.
+**Decisions (Tier 1 — breach/leak):**
+- Security headers middleware: HSTS (behind FORCE_HTTPS), X-Content-Type-Options,
+  X-Frame-Options, Referrer-Policy, Permissions-Policy.
+- Admin auth: `secrets.compare_digest` (constant-time), audit logging on every access,
+  PII redaction available via `?redact=true` on trace endpoints.
+- Widget XSS: verified all user/model content uses `textContent` — innerHTML only for
+  initial hardcoded DOM setup. Test asserts this.
+- SQL: confirmed all 12 execute() paths use parameterized queries.
+- Error sanitization: generic 500 handler, no stack traces in responses.
+
+**Decisions (Tier 2 — LLM abuse):**
+- Prompt injection defense: security rules in system prompt; KB content delimited with
+  `[KB_DATA_START]...[KB_DATA_END]` markers; strict Pydantic validation on all tool args
+  (length limits, slot_id pattern `[\w-]+`).
+- Security evals: 8 scenarios (prompt extraction, grounding bypass, slot injection, data
+  exfiltration, API key extraction, role override).
+- Cost ceiling: per-conversation token budget (50k default) + daily ceiling (500k), both
+  configurable. Token counting via tiktoken.
+- Proxy-aware rate limiting: X-Forwarded-For with configurable trusted proxy IPs.
+
+**Decisions (Data lifecycle):**
+- `DELETE /admin/conversations/{id}` for GDPR/DPDP deletion requests.
+- `POST /admin/purge?days=N` for retention TTL enforcement.
+- Email adapter: SMTP + .ics, code-ready, pending app password setup.
