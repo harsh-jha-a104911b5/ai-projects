@@ -134,5 +134,26 @@ scripts/       CLI tools: chat, ingest, traces, API runner
 tests/         pytest unit + integration + API tests
 ```
 
+## v1 known limitations
+
+- **CRM is Google Sheets.** Leads are captured to a Google Sheet, not a traditional CRM.
+  GHL/HubSpot adapters can be added behind the same `CRMAdapter` interface when needed.
+- **Booking confirmation email** requires a SendGrid account (`EMAIL_ADAPTER=sendgrid`).
+  Without it, the prospect's meeting lands on the business calendar but the prospect
+  receives no confirmation. See `SECURITY.md` for deliverability setup (SPF/DKIM/DMARC).
+- **Single-tenant.** One deployment = one business. No multi-tenant, billing, or auth.
+
+## Security
+
+See `SECURITY.md` for the full secret inventory, rotation procedures, and
+deliverability DNS setup.
+
+- Secrets: `.env` only (gitignored). gitleaks scans every push/PR in CI.
+- Admin endpoints: strong key + constant-time compare + audit logged.
+- Widget: all user/model content rendered via `textContent` (XSS-safe).
+- SQL: all queries parameterized. No f-string interpolation.
+- HTTPS: `FORCE_HTTPS=true` enables HSTS + HTTP→HTTPS redirect.
+- LLM abuse: prompt injection defense, per-conversation token budget, daily ceiling.
+
 See `CLAUDE.md` for full codebase context. See `DECISIONS.md` for architectural
 choices. See `TODO.md` for deferred work.

@@ -285,3 +285,26 @@ overhead and no build toolchain. Sufficient for a chat bubble + panel.
 - `DELETE /admin/conversations/{id}` for GDPR/DPDP deletion requests.
 - `POST /admin/purge?days=N` for retention TTL enforcement.
 - Email adapter: SMTP + .ics, code-ready, pending app password setup.
+
+---
+
+## 2026-06-24 — Pre-pilot closeout: email provider, CRM decision, secret scanning
+
+**Email provider: SendGrid over SMTP/Gmail App Password.**
+A Gmail App Password is a broad credential that grants full account access — wrong
+tool for transactional email. SendGrid API key is scoped to Mail Send only, revocable
+independently, and supports SPF/DKIM/DMARC for deliverability. Uses httpx (already a
+dep), no new packages. Status: code-ready, BLOCKED on SendGrid account + API key.
+
+**v1 CRM: Google Sheets confirmed.**
+User confirmed Sheets is acceptable for the pilot. Live write verified (`lead-f7cc8003`).
+GHL/HubSpot deferred — not needed until a client requires it. Documented as a known
+v1 limitation in README and TODO.
+**Why:** User doesn't have GHL access. Sheets captures the same data (name, email,
+phone, company, use case, budget, timeline) and is sufficient to demonstrate the
+lead-capture flow to pilot prospects.
+
+**Secret scanning: gitleaks in CI.**
+GitHub Actions workflow added (`.github/workflows/ci.yml`) with gitleaks scanning
+full git history on every push/PR. History scanned manually — no secrets found.
+`SECURITY.md` documents all secret locations, scopes, and rotation procedures.

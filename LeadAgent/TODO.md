@@ -27,12 +27,18 @@ Items explicitly out of scope for the current milestone. Pick up in the appropri
 - [x] **Purge endpoint** — `POST /admin/purge?days=N` for retention TTL.
 - [x] **Email adapter** — SMTP + .ics, code-ready. Pending: Gmail App Password setup.
 
+### Pre-pilot closeout
+- [x] **SendGrid email adapter** — code-ready, replaces SMTP approach.
+- [ ] **BLOCKED: Live email test** — needs SendGrid account + API key + verified sender.
+  Outstanding: trigger real booking → email arrives → .ics opens in Google/Apple/Outlook.
+- [x] **gitleaks CI** — `.github/workflows/ci.yml`, scans full history on push/PR.
+- [x] **SECURITY.md** — secret inventory, rotation procedures, deliverability DNS records.
+- [x] **CRM decision** — Google Sheets confirmed for v1 pilot. Live write verified.
+
 ### Deferred
-- [ ] **Live email test** — needs SMTP_USER + SMTP_PASSWORD (Gmail App Password).
 - [ ] **GoHighLevel CRM** — adapter interface ready, needs GHL account/API key.
 - [ ] **OAuth calendar guest-add** — service accounts can't invite guests without domain-wide delegation.
-- [ ] **gitleaks CI** — add to GitHub Actions when CI pipeline is set up.
-- [ ] **Secret rotation doc** — document procedure for rotating GCP service account key + API keys.
+- [ ] **SendGrid domain authentication** — SPF/DKIM/DMARC DNS records (do when SendGrid account is set up).
 
 ---
 
