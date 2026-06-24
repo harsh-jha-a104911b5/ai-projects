@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any
+from uuid import uuid4
 
 import structlog
 from openai import AsyncOpenAI
@@ -24,6 +26,7 @@ from agent.prompts import build_system_prompt
 from agent.tools import TOOL_SPEC, ToolSession, dispatch
 from integrations.calendar_adapter import CalendarAdapter
 from integrations.crm_adapter import CRMAdapter, MockCRMAdapter
+from observability.logger import ensure_conversation, log_turn
 
 logger = structlog.get_logger(__name__)
 
@@ -61,6 +64,10 @@ class AgentLoop:
             crm=crm or MockCRMAdapter(),
         )
 
+        self.conversation_id = uuid4()
+        self._turn_index = 0
+        self._conversation_created = False
+
     async def turn(
         self,
         user_message: str,
@@ -72,6 +79,15 @@ class AgentLoop:
         Pass the returned history back on the next call to maintain context.
         The system prompt is prepended on each API call and is NOT stored in history.
         """
+        if not self._conversation_created:
+            await ensure_conversation(self.conversation_id)
+            self._conversation_created = True
+
+        self._turn_index += 1
+        turn_idx = self._turn_index
+        turn_start = time.monotonic()
+        tool_calls_snapshot_start = len(self._session.tool_calls)
+
         contents: list[dict[str, Any]] = list(history) + [
             {"role": "user", "content": user_message}
         ]
@@ -117,6 +133,10 @@ class AgentLoop:
                     offered_slots=len(self._session.offered_slot_ids),
                     escalations=len(self._session.escalations),
                 )
+                await self._log_turn(
+                    turn_idx, user_message, text,
+                    tool_calls_snapshot_start, turn_start,
+                )
                 return text, contents
 
             tool_rounds += 1
@@ -126,12 +146,16 @@ class AgentLoop:
                     rounds=tool_rounds,
                     user_preview=user_message[:80],
                 )
-                contents.append({"role": "assistant", "content": msg.content or ""})
-                return (
+                fallback = (
                     "I'm sorry, I ran into an internal issue. Please try again or "
-                    "contact us directly.",
-                    contents,
+                    "contact us directly."
                 )
+                contents.append({"role": "assistant", "content": fallback})
+                await self._log_turn(
+                    turn_idx, user_message, fallback,
+                    tool_calls_snapshot_start, turn_start,
+                )
+                return fallback, contents
 
             # Append assistant's tool-call turn to history
             contents.append({
@@ -165,3 +189,33 @@ class AgentLoop:
                     "tool_call_id": tc.id,
                     "content": json.dumps(result),
                 })
+
+    async def _log_turn(
+        self,
+        turn_idx: int,
+        user_message: str,
+        assistant_message: str,
+        tool_calls_start: int,
+        turn_start: float,
+    ) -> None:
+        """Best-effort trace logging — never raises."""
+        latency_ms = int((time.monotonic() - turn_start) * 1000)
+        turn_tool_calls = self._session.tool_calls[tool_calls_start:]
+        retrieval_chunks = None
+        for tc in turn_tool_calls:
+            if tc["name"] == "search_knowledge":
+                retrieval_chunks = tc["result"].get("chunks", [])
+                break
+        try:
+            await log_turn(
+                conversation_id=self.conversation_id,
+                turn_index=turn_idx,
+                user_message=user_message,
+                assistant_message=assistant_message,
+                tool_calls=turn_tool_calls,
+                retrieval_chunks=retrieval_chunks,
+                latency_ms=latency_ms,
+                model=self._model,
+            )
+        except Exception:
+            logger.warning("turn_logging_failed", turn=turn_idx, exc_info=True)

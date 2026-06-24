@@ -27,6 +27,9 @@ dry-run:
 chat:
 	python scripts/chat.py
 
+traces:
+	python scripts/traces.py
+
 # ── Quality check ─────────────────────────────────────────────────────────────
 check-retrieval:
 	python checks/check_retrieval.py
