@@ -33,7 +33,7 @@ structlog.configure(
 )
 
 from agent.loop import AgentLoop
-from integrations.calendar_adapter import MockCalendarAdapter
+from integrations.calendar_adapter import get_calendar_adapter
 from integrations.crm_adapter import MockCRMAdapter
 
 
@@ -42,7 +42,7 @@ async def main() -> None:
     print("LeadAgent Chat  (type 'quit' to exit)")
     print("=" * 60 + "\n")
 
-    calendar = MockCalendarAdapter()
+    calendar = get_calendar_adapter()
     crm = MockCRMAdapter()
     loop = AgentLoop(calendar, crm=crm)
     history: list = []

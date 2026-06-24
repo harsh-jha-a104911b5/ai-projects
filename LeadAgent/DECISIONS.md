@@ -180,3 +180,27 @@ exclusively for `gemini-embedding-001` embeddings.
   `choices[0].message.tool_calls` / `.content` shape.
 **Result:** All 87 tests pass (82 pass, 5 skipped for Docker). Live sign-off (`make chat`,
 `make eval`) pending.
+
+---
+
+## 2026-06-24 — M5: turn-level logging via Postgres traces table
+
+**Context:** Need observability into agent conversations for debugging and auditing.
+**Decision:** Log every agent turn to the existing `traces` table: user message,
+assistant response, tool calls (JSONB), retrieval chunks, latency. New migration
+0003 adds `user_message`, `assistant_message`, `tool_calls` columns.
+**Design:** Best-effort logging — failures are caught and logged, never crash the
+agent. `DATABASE_URL` not set → logging silently skipped (tests, CI). CLI viewer
+via `scripts/traces.py` (also `make traces`).
+
+---
+
+## 2026-06-24 — M5: Google Calendar adapter behind CalendarAdapter protocol
+
+**Context:** MockCalendarAdapter works for tests but M5 requires a real booking.
+**Decision:** `GoogleCalendarAdapter` using GCP service account credentials + httpx
+calls to Calendar API v3. No new dependencies (`google-auth` is already a transitive
+dep of `google-genai`, and `httpx` is in deps).
+**Selection:** `CALENDAR_ADAPTER=google` in env; default `mock` keeps test/CI green.
+**Tradeoff:** Service account requires calendar sharing setup. Alternative was
+Cal.com (simpler API key auth) but user chose Google Calendar.

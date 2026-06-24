@@ -8,16 +8,13 @@ Items explicitly out of scope for the current milestone. Pick up in the appropri
 
 ## M5 — In progress
 
-- [ ] **Eval variance + hardening** — re-run eval 3× for stability, expand adversarial set,
-  add code-level grounding backstop, add qualifying pin + near-miss cases.
-- [ ] **Turn-level logging** — write each turn to `traces` table (user input, retrieved
-  chunks, tool calls, tool results, model output, latency). One row per turn with a
-  conversation_id.
-- [ ] **Trace view** — CLI or minimal FastAPI admin route to browse logged conversations.
-- [ ] **Real calendar adapter** — Cal.com (preferred) or Google Calendar behind the existing
-  `CalendarAdapter` interface. Env-selected; MockCalendarAdapter stays default for CI.
-- [ ] **Real CRM adapter** — GoHighLevel or HubSpot behind the existing `CRMAdapter`
-  interface. Env-selected; MockCRMAdapter stays default for CI.
+- [x] **Eval variance + hardening** — 3× variance stable (27-29/29), expanded to 29
+  scenarios, code-level grounding backstop implemented and tested.
+- [x] **Turn-level logging** — each turn logged to `traces` table with migration 0003.
+- [x] **Trace view** — CLI via `make traces` / `scripts/traces.py`.
+- [x] **Real calendar adapter** — GoogleCalendarAdapter implemented, env-selected
+  (`CALENDAR_ADAPTER=google`). Needs GCP service account setup to test live.
+- [ ] **Real CRM adapter** — deferred (user chose to skip for now).
 
 ## M6 — Not started
 
