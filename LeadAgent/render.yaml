@@ -1,0 +1,31 @@
+# Render Blueprint — deploy with: render blueprint apply
+# Postgres: use Neon (pgvector support). Set DATABASE_URL manually.
+services:
+  - type: web
+    name: leadagent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    rootDir: LeadAgent
+    plan: free
+    envVars:
+      - key: ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: FORCE_HTTPS
+        value: "true"
+      # Set in Render dashboard → Environment:
+      # DATABASE_URL (Neon connection string)
+      # DEEPSEEK_API_KEY
+      # GEMINI_API_KEY
+      # ADMIN_API_KEY
+      # GOOGLE_SERVICE_ACCOUNT_KEY (path or base64 — see DEPLOY.md)
+      # GOOGLE_CALENDAR_ID
+      # GOOGLE_SHEETS_SPREADSHEET_ID
+      # ALLOWED_ORIGINS
+      # COMPANY_NAME
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - LeadAgent/**

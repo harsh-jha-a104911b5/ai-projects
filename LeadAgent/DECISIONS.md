@@ -308,3 +308,34 @@ lead-capture flow to pilot prospects.
 GitHub Actions workflow added (`.github/workflows/ci.yml`) with gitleaks scanning
 full git history on every push/PR. History scanned manually — no secrets found.
 `SECURITY.md` documents all secret locations, scopes, and rotation procedures.
+
+---
+
+## 2026-06-25 — Deployment: Render + Neon + typed config
+
+**Deploy platform: Render + Neon.**
+Render for the web service (Docker, platform-managed TLS, free tier). Neon for
+Postgres (pgvector support, free tier). Platform subdomain (`*.onrender.com`) for
+now — custom domain can be added later.
+**Why:** Fastest path to a live HTTPS URL with zero ops. Render auto-deploys from
+GitHub push. Neon's free tier supports pgvector; Render's managed Postgres does not.
+
+**Typed settings: pydantic-settings `Settings` class.**
+Single typed config object (`config/__init__.py`) with all 40+ env vars documented,
+validated, and grouped into client-specific vs infrastructure sections. Fail-fast
+validation at startup in production (missing DEEPSEEK_API_KEY / GEMINI_API_KEY /
+ADMIN_API_KEY → RuntimeError). Creates the seam for future per-client config
+store without building multi-tenancy.
+
+**GCP credentials: file path OR base64 JSON.**
+Calendar and Sheets adapters now accept either a file path or base64-encoded JSON
+for `GOOGLE_SERVICE_ACCOUNT_KEY`. Cloud platforms (Render, Railway) can't upload
+files — base64 via env var is the standard workaround.
+
+**Migrations on startup.**
+`scripts/run_api.py` runs `db/apply_migrations.py` before starting uvicorn. Safe
+for single-instance; would need a migration job for multi-instance.
+
+**Embed snippet generator.**
+`GET /embed-snippet` returns the configured `<script>` tag with the instance's URL
+and branding. Demo page auto-detects the origin.

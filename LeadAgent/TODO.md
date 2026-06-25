@@ -2,7 +2,7 @@
 
 Items explicitly out of scope for the current milestone. Pick up in the appropriate milestone.
 
-**Current status: M6 complete, pre-pilot hardening complete.**
+**Current status: M6 complete, hardened, deployment artifacts ready.**
 
 ---
 

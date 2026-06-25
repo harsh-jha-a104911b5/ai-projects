@@ -72,10 +72,20 @@ class GoogleSheetsCRMAdapter:
         self._headers_ensured = False
 
     @staticmethod
-    def _load_credentials(key_path: str) -> Any:
+    def _load_credentials(key_value: str) -> Any:
+        """Load from file path or base64-encoded JSON (for cloud deployments)."""
+        import base64
+        import json as _json
         from google.oauth2 import service_account
         scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-        return service_account.Credentials.from_service_account_file(key_path, scopes=scopes)
+        if os.path.isfile(key_value):
+            return service_account.Credentials.from_service_account_file(key_value, scopes=scopes)
+        try:
+            decoded = base64.b64decode(key_value)
+            info = _json.loads(decoded)
+        except Exception:
+            info = _json.loads(key_value)
+        return service_account.Credentials.from_service_account_info(info, scopes=scopes)
 
     def _get_token(self) -> str:
         from google.auth.transport.requests import Request

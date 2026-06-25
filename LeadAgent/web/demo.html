@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LeadAgent Widget Demo</title>
+  <title>LeadAgent — Live Demo</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -15,27 +15,44 @@
     pre { background: #1e293b; color: #e2e8f0; padding: 20px; border-radius: 12px;
           text-align: left; overflow-x: auto; font-size: 0.85em; line-height: 1.7;
           margin: 24px 0; }
+    .badge { display: inline-block; background: #22c55e; color: #fff; padding: 4px 12px;
+             border-radius: 999px; font-size: 0.85em; margin-bottom: 20px; }
   </style>
 </head>
 <body>
   <div class="hero">
-    <h1>LeadAgent Widget Demo</h1>
-    <p>This page demonstrates the embeddable chat widget. Click the chat bubble in the bottom-right corner to start a conversation.</p>
-    <p>Embed it on any page with one script tag:</p>
-    <pre>&lt;script
-  src="http://localhost:8000/widget/widget.js"
-  data-api="http://localhost:8000"
-  data-title="Chat with us"
-  data-color="#2563eb"&gt;
-&lt;/script&gt;</pre>
-    <p>Configure via data attributes: <code>data-title</code>, <code>data-color</code>, <code>data-position</code> (left/right).</p>
+    <span class="badge">Live</span>
+    <h1>LeadAgent Demo</h1>
+    <p>Try the AI assistant — click the chat bubble in the bottom-right corner. Ask about services, pricing, or schedule a call.</p>
+    <p>Embed on any website with one line:</p>
+    <pre id="snippet">Loading snippet...</pre>
   </div>
 
-  <script
-    src="http://localhost:8000/widget/widget.js"
-    data-api="http://localhost:8000"
-    data-title="Chat with us"
-    data-color="#2563eb">
+  <script>
+    // Auto-detect the API URL from this page's origin
+    var API_URL = window.location.origin;
+    // Fetch the configured snippet from the server
+    fetch(API_URL + "/embed-snippet")
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        document.getElementById("snippet").textContent = data.snippet;
+      })
+      .catch(function() {
+        document.getElementById("snippet").textContent =
+          '<script src="' + API_URL + '/widget/widget.js" data-api="' + API_URL + '"><\/script>';
+      });
+  </script>
+
+  <script>
+    // Load the widget dynamically using the current origin
+    (function() {
+      var s = document.createElement("script");
+      s.src = window.location.origin + "/widget/widget.js";
+      s.setAttribute("data-api", window.location.origin);
+      s.setAttribute("data-title", "Chat with us");
+      s.setAttribute("data-color", "#2563eb");
+      document.body.appendChild(s);
+    })();
   </script>
 </body>
 </html>

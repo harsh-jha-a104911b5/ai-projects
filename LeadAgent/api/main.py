@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from config import settings, validate_required
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -23,21 +24,25 @@ from api.routes.chat import router as chat_router
 
 logger = structlog.get_logger(__name__)
 
+_missing = validate_required("api")
+if _missing and settings.env != "dev":
+    raise RuntimeError(f"Missing required config: {', '.join(_missing)}")
+
 _ALLOWED_ORIGINS = [
     o.strip()
-    for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+    for o in settings.allowed_origins.split(",")
     if o.strip()
 ]
 
 app = FastAPI(
     title="LeadAgent",
     version="0.1.0",
-    docs_url="/admin/docs" if os.environ.get("ENV") == "dev" else None,
+    docs_url="/admin/docs" if settings.env == "dev" else None,
     redoc_url=None,
 )
 
-app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
@@ -67,3 +72,19 @@ async def _generic_error_handler(request: Request, exc: Exception) -> JSONRespon
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/embed-snippet")
+async def embed_snippet(request: Request):
+    """Returns the ready-to-paste embed snippet for this instance."""
+    base = str(request.base_url).rstrip("/")
+    tag = (
+        f'<script\n'
+        f'  src="{base}/widget/widget.js"\n'
+        f'  data-api="{base}"\n'
+        f'  data-title="{settings.widget_title}"\n'
+        f'  data-color="{settings.widget_color}"\n'
+        f'  data-position="{settings.widget_position}">\n'
+        f'</script>'
+    )
+    return {"snippet": tag, "api_url": base}

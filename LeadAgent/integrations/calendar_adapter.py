@@ -105,19 +105,29 @@ class GoogleCalendarAdapter:
     """
 
     def __init__(self) -> None:
-        key_path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY")
-        if not key_path:
+        key_value = os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY")
+        if not key_value:
             raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_KEY is not set")
         self._calendar_id = os.environ.get("GOOGLE_CALENDAR_ID", "primary")
         self._slot_minutes = int(os.environ.get("GOOGLE_SLOT_DURATION_MINUTES", "30"))
-        self._credentials = self._load_credentials(key_path)
+        self._credentials = self._load_credentials(key_value)
         self._offered_events: dict[str, dict[str, Any]] = {}
 
     @staticmethod
-    def _load_credentials(key_path: str) -> Any:
+    def _load_credentials(key_value: str) -> Any:
+        """Load from file path or base64-encoded JSON (for cloud deployments)."""
+        import json as _json
         from google.oauth2 import service_account
         scopes = ["https://www.googleapis.com/auth/calendar"]
-        return service_account.Credentials.from_service_account_file(key_path, scopes=scopes)
+        if os.path.isfile(key_value):
+            return service_account.Credentials.from_service_account_file(key_value, scopes=scopes)
+        import base64
+        try:
+            decoded = base64.b64decode(key_value)
+            info = _json.loads(decoded)
+        except Exception:
+            info = _json.loads(key_value)
+        return service_account.Credentials.from_service_account_info(info, scopes=scopes)
 
     def _get_token(self) -> str:
         from google.auth.transport.requests import Request
