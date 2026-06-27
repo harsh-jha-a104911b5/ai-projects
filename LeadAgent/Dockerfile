@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir --prefix=/install .
 
-# ── Runtime stage ──────────────────────────────────────────────────────────
+# ── Runtime stage ─────────────────────────────────────────── 2026-06-27 ──
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
