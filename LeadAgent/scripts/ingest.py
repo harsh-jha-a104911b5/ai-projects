@@ -41,7 +41,7 @@ structlog.configure(
 
 from domain.chunk import ChunkMetadata, DocumentChunk
 from rag.chunker import chunk_text
-from rag.crawler import crawl
+from rag.crawler import _DEFAULT_EXCLUDE, crawl
 from rag.embedder import embed_texts
 from rag.store import upsert_chunks
 
@@ -53,6 +53,7 @@ async def run(
     depth: int,
     max_pages: int,
     dry_run: bool,
+    extra_exclude: list[str] | None = None,
 ) -> None:
     crawl_delay = float(os.environ.get("CRAWLER_CRAWL_DELAY_SECONDS", "0.5"))
     request_timeout = float(os.environ.get("CRAWLER_REQUEST_TIMEOUT_SECONDS", "10.0"))
@@ -61,7 +62,8 @@ async def run(
     chunk_overlap = int(os.environ.get("CHUNK_OVERLAP_TOKENS", "32"))
 
     logger.info("ingest_start", url=url, depth=depth, max_pages=max_pages,
-                chunk_tokens=chunk_tokens, chunk_overlap=chunk_overlap, dry_run=dry_run)
+                chunk_tokens=chunk_tokens, chunk_overlap=chunk_overlap, dry_run=dry_run,
+                exclude_patterns=extra_exclude)
 
     total_pages = 0
     total_chunks = 0
@@ -74,6 +76,7 @@ async def run(
         crawl_delay=crawl_delay,
         request_timeout=request_timeout,
         user_agent=user_agent,
+        exclude_patterns=extra_exclude,
     ):
         total_pages += 1
         chunks_text = chunk_text(text, chunk_tokens=chunk_tokens, overlap_tokens=chunk_overlap)
@@ -144,13 +147,21 @@ def main() -> None:
     parser.add_argument("--depth", type=int, default=2, help="Max crawl depth (default: 2)")
     parser.add_argument("--max-pages", type=int, default=200, help="Max pages to crawl (default: 200)")
     parser.add_argument("--dry-run", action="store_true", help="Crawl and chunk but skip embed+store")
+    parser.add_argument(
+        "--exclude",
+        default="",
+        help="Comma-separated URL substrings to exclude (e.g. terms,privacy,legal). "
+             "Merged with the crawler's built-in defaults.",
+    )
     args = parser.parse_args()
 
     # psycopg3 async requires SelectorEventLoop; Windows defaults to ProactorEventLoop
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-    asyncio.run(run(args.url, args.depth, args.max_pages, args.dry_run))
+    extra_exclude = [p.strip() for p in args.exclude.split(",") if p.strip()]
+    exclude = list(_DEFAULT_EXCLUDE) + extra_exclude if extra_exclude else None
+    asyncio.run(run(args.url, args.depth, args.max_pages, args.dry_run, exclude))
 
 
 if __name__ == "__main__":

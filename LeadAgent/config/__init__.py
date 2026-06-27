@@ -58,6 +58,7 @@ class Settings(BaseSettings):
 
     # ── Client-specific: identity ────────────────────────────────────────
     company_name: str = "our company"
+    rep_name: str = ""
     widget_title: str = "Chat with us"
     widget_color: str = "#2563eb"
     widget_position: str = "right"
