@@ -34,6 +34,28 @@ logger = structlog.get_logger(__name__)
 _DEFAULT_MODEL = "deepseek-chat"
 _DEFAULT_MAX_ROUNDS = 8
 
+_OPENER_PREFIXES = (
+    "great question! ",
+    "great question!",
+    "good question! ",
+    "good question!",
+    "excellent question! ",
+    "excellent question!",
+    "happy to help! ",
+    "of course! ",
+    "absolutely! ",
+    "sure thing! ",
+)
+
+
+def _strip_opener(text: str) -> str:
+    """Remove trained filler openers that precede the actual answer."""
+    lower = text.lower()
+    for prefix in _OPENER_PREFIXES:
+        if lower.startswith(prefix):
+            return text[len(prefix):].lstrip()
+    return text
+
 
 class AgentLoop:
     """One conversation: greets, searches KB, captures lead, checks calendar, books."""
@@ -109,7 +131,7 @@ class AgentLoop:
             tool_calls = msg.tool_calls  # list[ToolCall] or None
 
             if not tool_calls:
-                text = (msg.content or "").strip()
+                text = _strip_opener((msg.content or "").strip())
 
                 # Grounding backstop: if search_knowledge returned grounded=false
                 # and the model is about to answer without escalating, force it.
@@ -257,8 +279,8 @@ class AgentLoop:
                                 tc_acc[idx]["arguments"] += tcd.function.arguments
 
             if not tc_acc:
-                # Final round — now safe to stream the buffered answer
-                text = "".join(collected_text).strip()
+                # Final round — strip opener, then stream the buffered answer
+                text = _strip_opener("".join(collected_text).strip())
 
                 if self._session.pending_grounding_escalation:
                     esc_result = await dispatch(
@@ -270,8 +292,8 @@ class AgentLoop:
                     text = esc_result["user_message"]
                     yield {"event": "replace", "data": {"content": text}}
                 else:
-                    for token in collected_text:
-                        yield {"event": "token", "data": {"content": token}}
+                    if text:
+                        yield {"event": "token", "data": {"content": text}}
 
                 contents.append({"role": "assistant", "content": text})
                 await self._log_turn(turn_idx, user_message, text, tc_snapshot_start, turn_start)
