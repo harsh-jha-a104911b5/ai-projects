@@ -69,9 +69,12 @@ async def _generic_error_handler(request: Request, exc: Exception) -> JSONRespon
     )
 
 
+_BUILD_TAG = "v4-voice-2026-06-27"
+
+
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "build": _BUILD_TAG}
 
 
 @app.get("/embed-snippet")
