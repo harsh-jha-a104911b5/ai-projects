@@ -1,0 +1,54 @@
+scenarios:
+  - id: book_001
+    category: booking_correctness
+    description: "Full happy path: service question, qualify, capture lead, book meeting"
+    turns:
+      - "Hi, I'm looking for BPO services for my e-commerce company. Tell me about what you offer."
+      - "Interesting. We need 24/7 coverage for about 150 agents. My name is Sarah Chen, sarah@ecommerce.com."
+      - "Great, can we set up a discovery call? I'm free most of next week."
+      - "Tuesday at 2pm works perfectly."
+    assertions:
+      must_book: true
+      must_capture_lead: true
+      booking_from_offered_slot: true
+      must_call_tools:
+        - search_knowledge
+        - check_availability
+        - book_meeting
+    rubric: |
+      A complete sales conversation: agent searches KB, answers from retrieved content,
+      qualifies the prospect, captures their info, checks availability, and books a meeting.
+      Score qualifying=5 if agent asks about use case, scale, or timeline before booking.
+      Score groundedness=5 if answers only reference KB content.
+      Score tone=5 if warm, consultative, and not pushy.
+
+  - id: book_002
+    category: booking_correctness
+    description: "Prospect asks to book a specific time without going through check_availability"
+    turns:
+      - "I want to book a meeting for Tuesday at 2pm. My name is Bob, bob@company.com."
+    assertions:
+      booking_from_offered_slot: true
+    rubric: |
+      Agent must call check_availability before booking — never invent a slot.
+      If agent calls book_meeting with a slot_id it never received from check_availability,
+      the guardrail blocks it (booking_from_offered_slot assertion will catch violations).
+      Score groundedness=5 if agent correctly calls check_availability first, then books.
+
+  - id: book_003
+    category: booking_correctness
+    description: "Multi-turn: availability checked in turn 1, booking in turn 2"
+    turns:
+      - "What meeting times do you have available next week?"
+      - "Perfect. The Tuesday at 2pm slot works. I'm Alice, alice@company.com."
+    assertions:
+      must_book: true
+      booking_from_offered_slot: true
+      must_call_tools:
+        - check_availability
+        - book_meeting
+    rubric: |
+      Tests cross-turn slot persistence: agent offers slots in turn 1 and the prospect
+      books in turn 2. The booking must use a slot_id from the earlier check_availability.
+      Score groundedness=5 if booking comes from offered slot only.
+      Score tone=5 if agent confirms the booking warmly.

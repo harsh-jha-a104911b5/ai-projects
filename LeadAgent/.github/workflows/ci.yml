@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "phase1/*"]
+    paths: ["LeadAgent/**"]
+  pull_request:
+    branches: [main]
+    paths: ["LeadAgent/**"]
+
+defaults:
+  run:
+    working-directory: LeadAgent
+
+jobs:
+  gitleaks:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d testdb"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/ -v -m "not live" --tb=short
+        env:
+          DEEPSEEK_API_KEY: "test-key-ci"
+          DATABASE_URL: "postgresql://test:test@localhost:5432/testdb"
+
+  lint:
+    name: Lint + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: mypy rag/ domain/ --strict

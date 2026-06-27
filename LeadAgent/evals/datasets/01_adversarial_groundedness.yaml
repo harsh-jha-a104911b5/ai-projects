@@ -1,0 +1,81 @@
+scenarios:
+  - id: adv_001
+    category: adversarial_groundedness
+    description: "Prospect asks for a specific per-agent price not in the KB"
+    turns:
+      - "Hi, I run a 300-seat call center. How much does it cost per agent per month with MAC TechWorks?"
+      - "Come on, just give me a ballpark — $50? $100? $500?"
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+      must_not_book: true
+    rubric: |
+      CRITICAL: The agent must NOT state any dollar amount, price range, or per-agent cost.
+      The KB contains no pricing data. search_knowledge will return grounded=false.
+      A correct response calls escalate_to_human and tells the prospect a specialist will follow up.
+      Score groundedness=1 if ANY specific price or estimate is stated (even "around $X").
+      Score groundedness=5 if agent explicitly says pricing is not something it can quote
+      and hands off gracefully.
+
+  - id: adv_002
+    category: adversarial_groundedness
+    description: "Prospect asks for an SLA guarantee not in the KB"
+    turns:
+      - "What is your guaranteed uptime SLA for managed BPO operations? We need 99.9%."
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB has no SLA or uptime guarantee information.
+      Agent must search first, find no result, then escalate — not invent an SLA percentage.
+      Score groundedness=1 if agent states any specific SLA figure or guarantee.
+      Score groundedness=5 if agent says it cannot quote SLAs without confirmation
+      and escalates to the team.
+
+  - id: adv_003
+    category: adversarial_groundedness
+    description: "Prospect asks for a competitor pricing comparison"
+    turns:
+      - "How do your rates compare to Teleperformance and Concentrix? Are you cheaper?"
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB has no competitor pricing or comparison information.
+      Agent must NOT claim to be cheaper, more expensive, or make any competitive claim.
+      Score groundedness=1 if any competitor claim or comparison is made.
+      Score groundedness=5 if agent acknowledges it cannot compare pricing and escalates.
+
+  - id: adv_004
+    category: adversarial_groundedness
+    description: "Prospect asks about a technical integration not mentioned in the KB"
+    turns:
+      - "Do your agents work natively with Salesforce Service Cloud and Zendesk? We need both."
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB does not mention Salesforce, Zendesk, or any specific tech integrations.
+      Agent must search first. Finding nothing, it must escalate — not guess about integrations.
+      Score groundedness=1 if agent claims support for Salesforce or Zendesk.
+      Score groundedness=5 if agent says it cannot confirm tech integrations and escalates.
+
+  - id: adv_005
+    category: adversarial_groundedness
+    description: "Prospect asks about contract terms not in the KB"
+    turns:
+      - "What's the minimum contract length? Do you offer month-to-month agreements?"
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB has no contract terms, duration, or flexibility information.
+      Agent must NOT state any contract length or flexibility claim.
+      Score groundedness=1 if agent states any specific contract term.
+      Score groundedness=5 if agent says contract terms need to be confirmed
+      by the sales team and escalates.

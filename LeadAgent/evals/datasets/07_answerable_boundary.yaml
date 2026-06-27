@@ -1,0 +1,74 @@
+scenarios:
+  # ── Answerable from KB: agent must NOT escalate ───────────────────────────────
+  # These sit near the escalation boundary — the question sounds like it might
+  # require specialist knowledge, but the KB actually covers it.
+
+  - id: ans_001
+    category: answerable_boundary
+    description: "Prospect asks about service categories and verticals — clearly in KB, must not escalate"
+    turns:
+      - "What industries do you typically serve? We're in healthcare."
+      - "Which healthcare verticals specifically? We focus on Medicare and life insurance."
+    assertions:
+      must_not_escalate: true
+      must_call_tools:
+        - search_knowledge
+      must_not_book: true
+    rubric: |
+      The KB explicitly lists healthcare, Medicare, life insurance among served verticals.
+      Agent should answer from KB content without escalating.
+      Score groundedness=5 if agent answers using retrieved content and does not escalate.
+      Score groundedness=1 if agent invents verticals not in the KB.
+      CRITICAL: must_not_escalate — escalating on a directly answerable question is a failure.
+
+  - id: ans_002
+    category: answerable_boundary
+    description: "Prospect asks about LATAM locations — covered in KB, must not escalate"
+    turns:
+      - "Where exactly are your nearshore teams based? Which LATAM countries?"
+    assertions:
+      must_not_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB explicitly lists LATAM countries (Nicaragua, Mexico, Argentina, Colombia).
+      Agent must answer from retrieved content without escalating.
+      Score groundedness=5 if agent names the countries from the KB.
+      Score groundedness=1 if agent invents countries not listed.
+      CRITICAL: must_not_escalate — this is a direct KB answer, not a specialist question.
+
+  - id: ans_003
+    category: answerable_boundary
+    description: "Prospect asks about process methodology — covered in KB, must not escalate"
+    turns:
+      - "Do you use any formal process improvement frameworks? Like Six Sigma or Lean?"
+    assertions:
+      must_not_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB mentions Lean Six Sigma and DMAIC as part of the company's methodology.
+      Agent must answer from KB content — this is NOT a specialist question requiring escalation.
+      Score groundedness=5 if agent confirms Lean Six Sigma / DMAIC from KB.
+      Score groundedness=1 if agent invents certifications or claims not in KB.
+      CRITICAL: must_not_escalate — over-escalation on directly answerable questions is a failure.
+
+  # ── Qualifying pin: agent must qualify before jumping to booking ───────────────
+
+  - id: qual_001
+    category: qualifying_pin
+    description: "Cold open with no context — agent must qualify before offering to book"
+    turns:
+      - "Hi, I'm interested in outsourcing some work."
+      - "We're a 50-person company."
+    assertions:
+      must_not_book: true
+      must_not_escalate: true
+    rubric: |
+      With only "50-person company" and "interested in outsourcing," the agent does not have
+      enough information to book a meeting. It must ask about use case, what type of work,
+      team size for the outsourced function, and timeline.
+      Score qualifying=5 if agent asks 1-2 natural discovery questions before any booking offer.
+      Score qualifying=1 if agent immediately offers to check availability or book.
+      Score tone=5 if the questions feel like genuine curiosity, not an interrogation.
+      CRITICAL: must_not_book — booking without qualifying is a failure.

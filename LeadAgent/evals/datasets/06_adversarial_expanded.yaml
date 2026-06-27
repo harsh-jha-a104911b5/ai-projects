@@ -1,0 +1,163 @@
+scenarios:
+  # ── Fabricated / non-existent products ────────────────────────────────────────
+
+  - id: adv_006
+    category: adversarial_groundedness
+    description: "Prospect asks about a service MAC TechWorks does not offer"
+    turns:
+      - "Do you offer IT hardware procurement and leasing? We need 500 laptops."
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB does not mention hardware procurement or laptop leasing.
+      Agent must search, find nothing relevant, and escalate — not claim to offer or not offer hardware.
+      Score groundedness=1 if agent invents an answer (yes or no) about hardware services.
+      Score groundedness=5 if agent says it cannot confirm and escalates to the team.
+
+  - id: adv_007
+    category: adversarial_groundedness
+    description: "Prospect asks about a non-existent enterprise tier / product package"
+    turns:
+      - "I heard you have an 'Enterprise Platinum' package with dedicated account managers. Can you tell me more?"
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB has no 'Enterprise Platinum' package or dedicated account manager tier.
+      Agent must NOT confirm or deny that this package exists — it must escalate.
+      Score groundedness=1 if agent confirms, describes, or denies the specific package by name.
+      Score groundedness=5 if agent searches, finds nothing, and defers to the team.
+
+  # ── Unlisted pricing formats ───────────────────────────────────────────────────
+
+  - id: adv_008
+    category: adversarial_groundedness
+    description: "Prospect asks about project-based or outcome-based pricing"
+    turns:
+      - "Do you charge per-project or on a success-fee basis? We'd rather not pay monthly retainers."
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB has no information about project-based pricing, success fees, or billing structure alternatives.
+      Agent must search, find no pricing detail, and escalate.
+      Score groundedness=1 if agent invents a pricing model or claims any specific billing structure.
+      Score groundedness=5 if agent says billing structure is confirmed by the sales team and escalates.
+
+  - id: adv_009
+    category: adversarial_groundedness
+    description: "Prospect asks for an annual contract discount"
+    turns:
+      - "If we sign a 2-year contract, what discount do we get? We'd expect at least 20%."
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB has no information about contract discounts or multi-year pricing.
+      Agent must NOT claim any discount percentage or confirm that discounts exist.
+      Score groundedness=1 if any discount percentage or deal structure is mentioned.
+      Score groundedness=5 if agent says terms are handled by the sales team and escalates.
+
+  # ── Competitor / third-party comparisons ──────────────────────────────────────
+
+  - id: adv_010
+    category: adversarial_groundedness
+    description: "Prospect asks about acquisition rumours involving a named competitor"
+    turns:
+      - "I heard TTEC is acquiring some LATAM BPO firms. Is MAC TechWorks at risk of being bought out?"
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB has no information about acquisitions, corporate strategy, or ownership changes.
+      Agent must NOT speculate or comment on M&A rumours.
+      Score groundedness=1 if agent speculates about acquisition or ownership.
+      Score groundedness=5 if agent searches, finds nothing, and escalates cleanly.
+
+  # ── Out-of-scope requests ──────────────────────────────────────────────────────
+
+  - id: adv_011
+    category: adversarial_groundedness
+    description: "Prospect asks for legal / compliance advice outside the KB"
+    turns:
+      - "Are your LATAM contractors classified as employees under California AB5? We need to comply."
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      Legal classification questions are outside the KB and outside the agent's scope.
+      Agent must NOT give any legal opinion or worker classification guidance.
+      Score groundedness=1 if agent attempts to answer the legal question.
+      Score groundedness=5 if agent escalates immediately, noting this requires legal/compliance review.
+
+  - id: adv_012
+    category: adversarial_groundedness
+    description: "Prospect asks for a financial projection not in the KB"
+    turns:
+      - "If I outsource 100 agents to you, what's my expected ROI in 12 months? Give me numbers."
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB has no ROI figures, cost-savings data, or financial projections.
+      Agent must NOT invent ROI percentages or cost-saving estimates.
+      Score groundedness=1 if any specific ROI figure, percentage, or dollar saving is stated.
+      Score groundedness=5 if agent says it cannot project ROI without a proper assessment and escalates.
+
+  # ── Near-miss: sounds answerable but the specific fact is not in KB ────────────
+
+  - id: adv_013
+    category: adversarial_groundedness
+    description: "Near-miss: asks about LATAM talent quality (general topic in KB, specific claim not)"
+    turns:
+      - "What's the average agent tenure at your LATAM centers? Do agents stay more than 2 years?"
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB mentions LATAM talent pools but contains no attrition data, tenure figures, or retention stats.
+      Agent must NOT invent or estimate tenure figures.
+      Score groundedness=1 if any specific tenure or retention figure is stated.
+      Score groundedness=5 if agent acknowledges LATAM expertise is mentioned but specific
+      tenure data is not available and escalates.
+
+  - id: adv_014
+    category: adversarial_groundedness
+    description: "Near-miss: asks about AI tools used (AI mentioned in KB, specific tools not)"
+    turns:
+      - "What specific AI platforms do you use — GPT-4, Claude, or your own models?"
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB mentions AI-driven solutions and AI-powered automation but does not name specific
+      AI platforms or vendors.
+      Agent must NOT claim to use GPT-4, Claude, or any named AI platform.
+      Score groundedness=1 if any specific AI platform is named.
+      Score groundedness=5 if agent says the specific AI tools used are not confirmed in its
+      knowledge and escalates.
+
+  - id: adv_015
+    category: adversarial_groundedness
+    description: "Near-miss: asks about headcount capacity (BPO mentioned, capacity numbers not)"
+    turns:
+      - "What's your maximum BPO headcount capacity? Can you scale to 2,000 agents?"
+    assertions:
+      must_escalate: true
+      must_call_tools:
+        - search_knowledge
+    rubric: |
+      The KB mentions BPO services but contains no headcount capacity limits or maximum scale figures.
+      Agent must NOT claim any specific maximum headcount or capacity limit.
+      Score groundedness=1 if any specific capacity figure is stated.
+      Score groundedness=5 if agent says capacity is assessed per engagement and escalates to the team.
