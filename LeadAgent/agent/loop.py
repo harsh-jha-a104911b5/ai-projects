@@ -236,11 +236,11 @@ class AgentLoop:
         tool_rounds = 0
 
         _STATUS = {
-            "search_knowledge": "Searching knowledge base…",
-            "check_availability": "Checking calendar…",
-            "book_meeting": "Booking meeting…",
-            "capture_lead": "Saving contact…",
-            "escalate_to_human": "Connecting to team…",
+            "search_knowledge": "",          # silent — users don't need to see this
+            "check_availability": "Checking available times…",
+            "book_meeting": "Booking your meeting…",
+            "capture_lead": "Saving your details…",
+            "escalate_to_human": "Connecting you with the team…",
         }
 
         while True:
@@ -327,7 +327,9 @@ class AgentLoop:
             })
 
             for tc in sorted_tcs:
-                yield {"event": "status", "data": {"content": _STATUS.get(tc["name"], "Processing…")}}
+                status_text = _STATUS.get(tc["name"], "")
+                if status_text:
+                    yield {"event": "status", "data": {"content": status_text}}
                 args = json.loads(tc["arguments"])
                 result = await dispatch(tc["name"], args, self._session)
                 contents.append({

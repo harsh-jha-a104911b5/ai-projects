@@ -35,6 +35,13 @@
       line-height:1.45;word-wrap:break-word;white-space:pre-wrap}
     .la-msg.la-user{align-self:flex-end;background:${COLOR};color:#fff;border-bottom-right-radius:4px}
     .la-msg.la-bot{align-self:flex-start;background:#f1f3f5;color:#1a1a1a;border-bottom-left-radius:4px}
+    .la-typing{align-self:flex-start;display:flex;gap:4px;padding:12px 14px;
+      background:#f1f3f5;border-radius:14px;border-bottom-left-radius:4px}
+    .la-typing span{width:7px;height:7px;background:#aaa;border-radius:50%;
+      animation:la-bounce 1.2s infinite ease-in-out}
+    .la-typing span:nth-child(2){animation-delay:.2s}
+    .la-typing span:nth-child(3){animation-delay:.4s}
+    @keyframes la-bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
     .la-msg.la-status{align-self:center;background:none;color:#888;font-size:12px;
       font-style:italic;padding:2px 0}
     #la-input-area{display:flex;border-top:1px solid #e5e7eb;padding:10px 12px;gap:8px;flex-shrink:0}
@@ -91,7 +98,22 @@
     return el;
   }
 
+  function showTyping() {
+    hideTyping();
+    var el = document.createElement("div");
+    el.className = "la-typing";
+    el.innerHTML = "<span></span><span></span><span></span>";
+    messages.appendChild(el);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function hideTyping() {
+    var el = messages.querySelector(".la-typing");
+    if (el) el.remove();
+  }
+
   function setStatus(text) {
+    hideTyping();
     var existing = messages.querySelector(".la-status:last-child");
     if (existing) existing.remove();
     if (text) addMsg(text, "la-status");
@@ -129,7 +151,7 @@
     input.style.height = "auto";
     busy = true;
     sendBtn.disabled = true;
-    setStatus("Thinking…");
+    showTyping();
 
     var botEl = null;
     var accumulated = "";
@@ -186,7 +208,9 @@
         conversationId = data.conversation_id;
       } else if (event === "status") {
         setStatus(data.content || "");
+        if (data.content) showTyping();
       } else if (event === "token") {
+        hideTyping();
         setStatus("");
         if (!botEl) {
           botEl = addMsg("", "la-bot");
@@ -198,14 +222,17 @@
         if (botEl) { botEl.remove(); botEl = null; }
         accumulated = "";
       } else if (event === "replace") {
+        hideTyping();
         setStatus("");
         accumulated = data.content || "";
         if (!botEl) botEl = addMsg("", "la-bot");
         botEl.textContent = accumulated;
       } else if (event === "message") {
+        hideTyping();
         setStatus("");
         addMsg(data.content || "", "la-bot");
       } else if (event === "error") {
+        hideTyping();
         setStatus("");
         addMsg(data.content || "An error occurred.", "la-bot");
       } else if (event === "done") {
@@ -214,6 +241,7 @@
     }
 
     function finish() {
+      hideTyping();
       setStatus("");
       busy = false;
       sendBtn.disabled = false;
