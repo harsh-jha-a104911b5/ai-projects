@@ -19,6 +19,33 @@ class AssertionResult:
     detail: str
 
 
+_PROCESS_LANGUAGE_PATTERNS = [
+    "knowledge base",
+    "let me search",
+    "let me look",
+    "let me check",
+    "let me find",
+    "i found",
+    "i searched",
+    "i looked that up",
+    "i don't have that in my knowledge",
+    "according to my knowledge",
+]
+
+_FORMULAIC_OPENERS = [
+    "great question",
+    "good question",
+    "excellent question",
+    "happy to help",
+    "glad you asked",
+    "love that you asked",
+]
+
+
+def _first_words(text: str, n: int = 3) -> str:
+    return " ".join(text.strip().split()[:n]).lower().rstrip("!,.")
+
+
 def run_assertions(
     expected: dict[str, Any],
     session: ToolSession,
@@ -75,7 +102,6 @@ def run_assertions(
         ))
 
     if expected.get("booking_from_offered_slot"):
-        # Any book_meeting call that succeeded must have used an offered slot
         illegal_bookings = [
             tc for tc in session.tool_calls
             if tc["name"] == "book_meeting" and "error" in tc["result"]
@@ -106,6 +132,47 @@ def run_assertions(
             name=f"must_not_call_tool:{tool_name}",
             passed=not called,
             detail=f"Correctly did not call {tool_name}" if not called else f"Unexpectedly called {tool_name}",
+        ))
+
+    # ── Voice / professionalism assertions ───────────────────────────────────
+
+    if expected.get("no_process_language"):
+        violations = []
+        for i, response in enumerate(responses):
+            r = response.lower()
+            found = [p for p in _PROCESS_LANGUAGE_PATTERNS if p in r]
+            if found:
+                violations.append(f"response {i + 1}: '{found[0]}'")
+        passed = len(violations) == 0
+        results.append(AssertionResult(
+            name="no_process_language",
+            passed=passed,
+            detail="No process language" if passed else "; ".join(violations),
+        ))
+
+    if expected.get("no_formulaic_opener"):
+        violations = []
+        for i, response in enumerate(responses):
+            opener = _first_words(response)
+            hit = [p for p in _FORMULAIC_OPENERS if opener.startswith(p) or p in opener]
+            if hit:
+                violations.append(f"response {i + 1} opens '{hit[0]}'")
+        passed = len(violations) == 0
+        results.append(AssertionResult(
+            name="no_formulaic_opener",
+            passed=passed,
+            detail="No formulaic openers" if passed else "; ".join(violations),
+        ))
+
+    if expected.get("opener_variety") and len(responses) >= 2:
+        openers = [_first_words(r) for r in responses]
+        unique = len(set(openers))
+        passed = unique >= max(2, len(responses) - 1)
+        results.append(AssertionResult(
+            name="opener_variety",
+            passed=passed,
+            detail=f"{unique}/{len(openers)} unique openers" if passed
+                   else f"Only {unique} unique openers: {openers}",
         ))
 
     return results

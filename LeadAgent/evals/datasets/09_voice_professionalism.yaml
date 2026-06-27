@@ -1,0 +1,99 @@
+scenarios:
+  - id: voice_001
+    category: voice_professionalism
+    description: "Simple product question — must answer directly with no preamble or KB meta-language"
+    turns:
+      - "What does Visark do?"
+    assertions:
+      must_call_tools:
+        - search_knowledge
+      no_process_language: true
+      no_formulaic_opener: true
+    rubric: |
+      The response must read like a knowledgeable colleague answered directly.
+      FAIL if the response starts with or contains: "let me look", "let me search",
+      "the knowledge base", "I found", "Great question!", "Happy to help".
+      PASS if the first sentence is substantive content about what the company does.
+      Score voice=5 if the answer is direct, specific, and sounds human.
+      Score voice=1 if it opens with preamble, filler, or process narration.
+
+  - id: voice_002
+    category: voice_professionalism
+    description: "KB meta-language regression — the actual bad output from this session"
+    turns:
+      - "Hi, what is Visark?"
+    assertions:
+      no_process_language: true
+      no_formulaic_opener: true
+    rubric: |
+      Seeded from real failure: agent said "the knowledge base mentions that before Visark,
+      the founder ran technology..." and "I'd need to clarify if that's the founder specifically."
+      FAIL if response contains "the knowledge base", "I'd need to clarify", or hedges on
+      internal details it shouldn't surface at all.
+      PASS if internal personnel details (names, past roles) are omitted gracefully,
+      and the answer leads with what Visark does for customers.
+
+  - id: voice_003
+    category: voice_professionalism
+    description: "Pre-tool preamble regression — must not say 'let me look that up'"
+    turns:
+      - "How does Visark detect churn risk?"
+    assertions:
+      no_process_language: true
+    rubric: |
+      Seeded from real failure: agent opened with "Let me look up what Visark is all about"
+      before the actual answer. First tokens the user sees must be substantive content.
+      FAIL if response (or the beginning of the response) contains any retrieval preamble.
+      PASS if the answer opens immediately with substance — how churn detection works.
+
+  - id: voice_004
+    category: voice_professionalism
+    description: "Opener variety — 'Great question!' must not repeat across a conversation"
+    turns:
+      - "What does Visark do?"
+      - "How does pricing work?"
+      - "Is my data secure?"
+      - "What integrations do you support?"
+    assertions:
+      no_formulaic_opener: true
+      opener_variety: true
+    rubric: |
+      Seeded from real failure: every response in the session started with "Great question!"
+      which reads as robotic and formulaic.
+      FAIL if more than one response starts with the same acknowledgment filler
+      ("Great question!", "Good question!", "Happy to help!", "Absolutely!").
+      PASS if openers vary — some lead with substance, some with a short natural connector,
+      none repeat the same filler twice.
+
+  - id: voice_005
+    category: voice_professionalism
+    description: "No assumptions about user — agent must not invent their role or industry"
+    turns:
+      - "Tell me about Visark."
+      - "Interesting. What kind of teams use it?"
+    assertions:
+      no_process_language: true
+    rubric: |
+      Seeded from real failure: agent said "help with your development work" when the user
+      never mentioned development. Agent must only reference what the user actually said.
+      FAIL if the response attributes a role, industry, or use case to the user that
+      they did not state ("your development work", "as a developer", "for your SaaS").
+      PASS if the agent describes customer types generically or asks clarifying questions.
+
+  - id: voice_006
+    category: voice_professionalism
+    description: "Graceful escalation language — must sound human, not like a ticket system"
+    turns:
+      - "Can you give me exact pricing? I need a number to take to my CFO."
+    assertions:
+      must_escalate: true
+      no_process_language: true
+    rubric: |
+      Seeded from real failure: agent said "I've escalated this to a human team member
+      who will be in touch with you shortly." This sounds like a support ticket, not a
+      conversation.
+      FAIL if response contains "I've escalated this", "escalated to a human team member",
+      "could I grab your name so I can keep track", or similar robotic handoff phrasing.
+      PASS if the handoff sounds natural: "I'll get someone from the team to give you
+      an exact number — what's the best way to reach you?" or similar.
+      Must still call escalate_to_human (behavioral guardrail preserved).

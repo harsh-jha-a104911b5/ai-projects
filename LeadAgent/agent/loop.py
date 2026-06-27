@@ -239,8 +239,9 @@ class AgentLoop:
                 delta = chunk.choices[0].delta
 
                 if delta.content:
+                    # Buffer — never stream pre-tool text. Tokens are only
+                    # emitted below once we know this round has no tool calls.
                     collected_text.append(delta.content)
-                    yield {"event": "token", "data": {"content": delta.content}}
 
                 if delta.tool_calls:
                     for tcd in delta.tool_calls:
@@ -256,6 +257,7 @@ class AgentLoop:
                                 tc_acc[idx]["arguments"] += tcd.function.arguments
 
             if not tc_acc:
+                # Final round — now safe to stream the buffered answer
                 text = "".join(collected_text).strip()
 
                 if self._session.pending_grounding_escalation:
@@ -267,6 +269,9 @@ class AgentLoop:
                     logger.warning("grounding_backstop_triggered", escalation_id=esc_result.get("escalation_id"))
                     text = esc_result["user_message"]
                     yield {"event": "replace", "data": {"content": text}}
+                else:
+                    for token in collected_text:
+                        yield {"event": "token", "data": {"content": token}}
 
                 contents.append({"role": "assistant", "content": text})
                 await self._log_turn(turn_idx, user_message, text, tc_snapshot_start, turn_start)
@@ -287,8 +292,7 @@ class AgentLoop:
                 self.last_history = contents
                 return
 
-            if collected_text:
-                yield {"event": "clear", "data": {}}
+            # Pre-tool text is silently discarded — never reached the client
 
             sorted_tcs = [tc_acc[i] for i in sorted(tc_acc)]
             contents.append({

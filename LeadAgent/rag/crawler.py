@@ -87,6 +87,14 @@ def _build_robots_parser(base_url: str, user_agent: str) -> RobotFileParser:
     return rp
 
 
+_DEFAULT_EXCLUDE = ["terms", "privacy", "legal", "cookie", "careers", "sitemap"]
+
+
+def _should_exclude(url: str, patterns: list[str]) -> bool:
+    path = urlparse(url).path.lower()
+    return any(p in path for p in patterns)
+
+
 async def crawl(
     seed_url: str,
     *,
@@ -95,10 +103,16 @@ async def crawl(
     crawl_delay: float = DEFAULT_CRAWL_DELAY,
     request_timeout: float = DEFAULT_TIMEOUT,
     user_agent: str = "LeadAgent-Crawler/1.0",
+    exclude_patterns: list[str] | None = None,
 ) -> AsyncIterator[tuple[str, str, int]]:
-    """Yield (url, clean_text, depth) tuples for each successfully extracted page."""
+    """Yield (url, clean_text, depth) tuples for each successfully extracted page.
+
+    exclude_patterns: URL path substrings to skip (e.g. ["terms", "privacy"]).
+    Defaults to _DEFAULT_EXCLUDE. Pass [] to disable all exclusions.
+    """
     seed_url = _normalize_url(seed_url)
     robots = _build_robots_parser(seed_url, user_agent)
+    excludes = _DEFAULT_EXCLUDE if exclude_patterns is None else exclude_patterns
 
     headers = {"User-Agent": user_agent}
     visited: set[str] = set()
@@ -115,6 +129,10 @@ async def crawl(
             if url in visited:
                 continue
             visited.add(url)
+
+            if excludes and _should_exclude(url, excludes):
+                logger.info("excluded_url", url=url)
+                continue
 
             if not robots.can_fetch(user_agent, url):
                 logger.info("robots_disallow", url=url)
